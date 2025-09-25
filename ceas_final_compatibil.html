@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Ceas Interactiv Final</title>
+
+    <style>
+        /* Stiluri de bază și reset */
+        :root {
+            --clock-font-weight: 400;
+            --clock-opacity: 1.0;
+            --clock-vertical-scale: 1.0; /* Valoare default pentru alungire */
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content:center;
+            align-items: center;
+            background-color: #000000;
+            color: #000000;
+            font-family: sans-serif;
+            overflow: hidden;
+            cursor: default; 
+            transition: background-color 0.5s ease-in-out; 
+        }
+
+        /* Containerul principal al ceasului */
+        .clock-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: flex-start; /* Aliniere sus */
+            padding-top: 15vh; /* Împinge ceasul mai jos */
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+            position: relative;
+            box-sizing: border-box; /* Asigură că padding-ul nu mărește înălțimea */
+            opacity: var(--clock-opacity);
+            transition: opacity 0.3s;
+        }
+
+        .time {
+            transform: scaleY(var(--clock-vertical-scale));
+            transform-origin: top;
+            transition: transform 0.1s linear;
+        }
+
+        /* Săgețile de navigare și color picker-ul (apar la interacțiune) */
+        .nav-arrow {
+            opacity: 0; /* Inițial invizibile */
+            transition: opacity 0.5s ease-in-out;
+            z-index: 10;
+            user-select: none;
+            pointer-events: none; /* Dezactivează interacțiunea când sunt invizibile */
+        }
+
+        /* Clasa adăugată de JS pentru a le face vizibile */
+        body.controls-visible .nav-arrow {
+            opacity: 1;
+            pointer-events: auto; /* Activează interacțiunea când sunt vizibile */
+        }
+
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 3em;
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .nav-arrow.left { left: 20px; }
+        .nav-arrow.right { right: 20px; }
+
+        .nav-arrow:hover {
+             color: white; 
+        }
+        
+        /* -------------------------------------- */
+        /* Stiluri pentru TEMA 1: DIGITAL MODERN */
+        /* -------------------------------------- */
+        .theme-digital-modern {
+            font-family: 'Times New Romn', Times, serif; 
+            font-weight: var(--clock-font-weight);
+            color: rgb(255, 102, 0);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .theme-digital-modern .time { font-size: 8em; line-height: 1; order: 2; }
+        .theme-digital-modern .date { font-size: 1.5em; margin-bottom: 5px; opacity: 0.8; order: 1; }
+        .theme-digital-modern .seconds, .theme-digital-modern .minutes-group { display: none; }
+        
+        
+        /* -------------------------------------- */
+        /* Stiluri pentru TEMA 2: IOS STYLE       */
+        /* -------------------------------------- */
+        .theme-ios-style {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-weight: var(--clock-font-weight);
+            color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .theme-ios-style .time { font-size: 7em; line-height: 1; order: 2; }
+        .theme-ios-style .date { font-size: 1.2em; margin-bottom: 5px; opacity: 0.8; order: 1; }
+        .theme-ios-style .seconds, .theme-ios-style .minutes-group { display: none; }
+
+
+        /* -------------------------------------- */
+        /* Stiluri pentru TEMA 3: MINIMALIST      */
+        /* -------------------------------------- */
+        .theme-minimalist {
+            font-family: 'Arial Narrow', sans-serif;
+            font-weight: var(--clock-font-weight); /* Font subțire */
+            color: #FFFFFF;
+            letter-spacing: 1px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .theme-minimalist .time { font-size: 7em; line-height: 1; order: 2; }
+        .theme-minimalist .date { font-size: 1.2em; margin-bottom: 5px; opacity: 0.8; order: 1; }
+        .theme-minimalist .seconds, .theme-minimalist .minutes-group { display: none; }
+        
+        /* Stil pentru textul de jos al temei */
+        .theme-name {
+            position: absolute;
+            bottom: 80px; /* Ridicat pentru a face loc butonului */
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+
+        /* Stiluri pentru Fullscreen - pentru a ascunde săgețile când e salvat pe iPhone */
+        body.fullscreen .nav-arrow, body.fullscreen #settings-toggle { display: none; }
+        .fullscreen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9; }
+
+        /* -------------------------------------- */
+        /* Panou de Setări Stil iPhone            */
+        /* -------------------------------------- */
+        #settings-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(50, 50, 50, 0.8);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        body.controls-visible #settings-toggle {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #settings-toggle.hidden-by-panel {
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+
+        #settings-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(30, 30, 30, 0.9);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 99;
+            padding: 20px;
+            padding-top: 50px; /* Spațiu extra sus pentru butoane */
+            box-sizing: border-box;
+            color: white;
+        }
+        #settings-panel.visible {
+            transform: translateY(0);
+        }
+        #close-settings {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(100, 100, 100, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 16px;
+            line-height: 28px;
+            text-align: center;
+            cursor: pointer;
+            z-index: 101;
+        }
+        .settings-section {
+            margin-bottom: 20px;
+        }
+        .settings-section label {
+            display: block;
+            font-size: 0.8em;
+            margin-bottom: 10px;
+            opacity: 0.7;
+            text-transform: uppercase;
+        }
+        .slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        #colorPicker {
+            width: 100%;
+            height: 40px;
+            border: none;
+            padding: 0;
+            background: none;
+            cursor: pointer;
+        }
+        #resetButton {
+            position: absolute;
+            top: 12px;
+            left: 15px;
+            background: none;
+            border: none;
+            color: #007AFF; /* Culoare similară cu link-urile din iOS */
+            font-size: 1em;
+            cursor: pointer;
+            padding: 5px;
+        }
+    </style>
+    <style id="dynamic-color-style"></style>
+</head>
+<body>
+
+    <div class="nav-arrow left" onclick="changeTheme(-1)">&#10094;</div>
+    <div class="nav-arrow right" onclick="changeTheme(1)">&#10095;</div>
+
+    <div id="clockContainer" class="clock-container">
+        </div>
+
+    <button id="settings-toggle">Setări</button>
+
+    <div id="settings-panel">
+        <button id="resetButton">Reset</button>
+        <button id="close-settings">X</button>
+        <div class="settings-section">
+            <label for="colorPicker">Culoare</label>
+            <input type="color" id="colorPicker">
+        </div>
+        <div class="settings-section">
+            <label for="fontWeightSlider">Grosime Font</label>
+            <input type="range" id="fontWeightSlider" class="slider" min="100" max="900" step="100" value="400">
+        </div>
+        <div class="settings-section">
+            <label for="opacitySlider">Luminozitate</label>
+            <input type="range" id="opacitySlider" class="slider" min="0.1" max="1.0" step="0.05" value="1.0">
+        </div>
+        <div class="settings-section">
+            <label for="scaleSlider">Alungire Verticală</label>
+            <input type="range" id="scaleSlider" class="slider" min="1.0" max="2.5" step="0.01" value="1.0">
+        </div>
+        
+    </div>
+
+    <div id="swipeArea" class="fullscreen-overlay"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Funcție simplificată pentru a formata ora (mai robustă)
+            function formatTime(d) {
+                let hours = d.getHours(24)
+                const ampm = hours >= 24 ;
+                hours = hours % 24;
+                hours = hours ? hours : 24; // ora 0 (midight) devine 24
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                return { hours: String(hours).padStart(2, '0'), minutes, ampm };
+            }
+
+            // Definirea temelor 
+            const themes = [
+                {
+                    name: 'Digital Modern',
+                    class: 'theme-digital-modern',
+                    bgColor: '#000',
+                    defaultColor: '#ff6600'
+                },
+                {
+                    name: 'iOS Style',
+                    class: 'theme-ios-style',
+                    bgColor: '#000',
+                    defaultColor: '#ffffff'
+                },
+                {
+                    name: 'Minimalist',
+                    class: 'theme-minimalist',
+                    bgColor: '#000',
+                    defaultColor: '#ffffff'
+                }
+            ];
+
+            let currentThemeIndex = 0;
+            const container = document.getElementById('clockContainer');
+            const swipeArea = document.getElementById('swipeArea');
+            const colorPicker = document.getElementById('colorPicker');
+            const dynamicColorStyle = document.getElementById('dynamic-color-style');
+            const root = document.documentElement;
+
+            // Funcția care actualizează culoarea dinamic
+            function updateUserColor(color) {
+                // Aplică stilul pentru ambele teme, pentru a suprascrie culoarea
+                const styleContent = `
+                    .theme-digital-modern, .theme-ios-style, .theme-minimalist {
+                        color: ${color} !important;
+                    }
+                `;
+                dynamicColorStyle.innerHTML = styleContent;
+            }
+
+            // Setează culoarea inițială a picker-ului și evenimentul de schimbare
+            function setupColorPicker() {
+                const initialColor = themes[currentThemeIndex].defaultColor;
+                colorPicker.value = initialColor;
+                updateUserColor(initialColor); // Aplică culoarea inițială
+            }
+
+            colorPicker.addEventListener('input', (event) => {
+                updateUserColor(event.target.value);
+            });
+
+            // Funcția de actualizare a ceasului
+            function updateClock() {
+                const now = new Date();
+                const theme = themes[currentThemeIndex];
+                const timeParts = formatTime(now);
+                const currentDate = now.toLocaleDateString('ro-RO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                
+                // Schimbă fundalul întregului ecran
+                document.body.style.backgroundColor = theme.bgColor;
+
+                const contentHTML = `
+                    <div class="${theme.class}">
+                        <div class="date">${currentDate}</div>
+                        <div class="time">${timeParts.hours}:${timeParts.minutes}</div>
+                    </div>
+                `;
+
+                container.innerHTML = contentHTML + `<div class="theme-name">${theme.name}</div>`;
+            }
+
+            // Funcția de schimbare a temei
+            window.changeTheme = function(direction) {
+                currentThemeIndex = (currentThemeIndex + direction + themes.length) % themes.length;
+                updateClock();
+                // Culoarea selectată de utilizator persistă la schimbarea temei.
+                // Nu mai resetăm la culoarea default a temei.
+            }
+
+            // MARK: - Gestiune Setări Panel
+            const settingsToggle = document.getElementById('settings-toggle');
+            const settingsPanel = document.getElementById('settings-panel');
+            const closeSettingsButton = document.getElementById('close-settings');
+            const fontWeightSlider = document.getElementById('fontWeightSlider');
+            const opacitySlider = document.getElementById('opacitySlider');
+            const scaleSlider = document.getElementById('scaleSlider');
+            const resetButton = document.getElementById('resetButton');
+
+            // Valori default
+            const defaultSettings = {
+                color: themes[currentThemeIndex].defaultColor,
+                fontWeight: '400',
+                opacity: '1.0',
+                scale: '1.0'
+            };
+
+            function applySettings(settings) {
+                // Aplică culoarea
+                updateUserColor(settings.color);
+                colorPicker.value = settings.color;
+
+                // Aplică stilurile CSS
+                root.style.setProperty('--clock-font-weight', settings.fontWeight);
+                root.style.setProperty('--clock-opacity', settings.opacity);
+                root.style.setProperty('--clock-vertical-scale', settings.scale);
+
+                // Actualizează sliderele
+                fontWeightSlider.value = settings.fontWeight;
+                opacitySlider.value = settings.opacity;
+                scaleSlider.value = settings.scale;
+            }
+
+            function setPanelVisibility(isVisible) {
+                settingsPanel.classList.toggle('visible', isVisible);
+                settingsToggle.classList.toggle('hidden-by-panel', isVisible);
+            }
+
+            resetButton.addEventListener('click', () => {
+                // La reset, folosim culoarea default a temei curente
+                const currentThemeDefaultColor = themes[currentThemeIndex].defaultColor;
+                const settingsToApply = { ...defaultSettings, color: currentThemeDefaultColor };
+                applySettings(settingsToApply);
+                // Panoul nu se mai închide automat
+            });
+
+            settingsToggle.addEventListener('click', () => {
+                setPanelVisibility(true);
+                showControls(); // Păstrează controalele vizibile când panoul e deschis
+            });
+
+            closeSettingsButton.addEventListener('click', () => {
+                setPanelVisibility(false);
+            });
+
+            fontWeightSlider.addEventListener('input', (e) => {
+                root.style.setProperty('--clock-font-weight', e.target.value);
+            });
+
+            opacitySlider.addEventListener('input', (e) => {
+                root.style.setProperty('--clock-opacity', e.target.value);
+            });
+
+            scaleSlider.addEventListener('input', (e) => {
+                root.style.setProperty('--clock-vertical-scale', e.target.value);
+            });
+
+
+            // MARK: - Gestiune vizibilitate controale
+            let controlsTimeout;
+
+            function showControls() {
+                document.body.classList.add('controls-visible');
+                clearTimeout(controlsTimeout); // Resetează timer-ul dacă există
+                // Ascunde controalele doar dacă panoul de setări NU este deschis
+                if (!settingsPanel.classList.contains('visible')) {
+                    controlsTimeout = setTimeout(() => {
+                        document.body.classList.remove('controls-visible');
+                    }, 3000); // Ascunde controalele după 3 secunde de inactivitate
+                }
+            }
+
+            // Afișează controalele la mișcarea mouse-ului sau la atingere
+            document.body.addEventListener('mousemove', showControls);
+            document.body.addEventListener('touchstart', showControls, { passive: true });
+            document.body.addEventListener('touchend', showControls, { passive: true });
+
+
+            // Inițializarea ceasului și a intervalului de actualizare
+            setupColorPicker();
+            updateClock();
+            setInterval(updateClock, 1000);
+            showControls(); // Afișează controalele la încărcare
+
+            // MARK: - Gestiune Swipe (pentru dispozitive mobile/touchscreen)
+            let touchstartX = 0;
+            
+            swipeArea.addEventListener('touchstart', e => {
+                touchstartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+
+            swipeArea.addEventListener('touchend', e => {
+                const touchendX = e.changedTouches[0].screenX;
+                const deltaX = touchendX - touchstartX;
+
+                if (Math.abs(deltaX) > 50) { // Threshold
+                    if (settingsPanel.classList.contains('visible')) {
+                        // Nu face nimic dacă panoul e deschis, pentru a evita schimbarea accidentală a temei
+                        return;
+                    }
+                    changeTheme(deltaX < 0 ? 1 : -1);
+                }
+            }, { passive: true });
+            
+            // Verifică modul standalone
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                document.body.classList.add('fullscreen');
+            }
+        });
+    </script>
+    
+</body>
+</html>
